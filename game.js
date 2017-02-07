@@ -95,6 +95,7 @@
 		return normalizeGrid(newGrid);
 	}
 
+	// Pushes the grid to the corner so it can be compared with hash
 	function normalizeGrid(grid) {
 		var minX = MAX_BLOCK_LENGTH;
 		var minY = MAX_BLOCK_LENGTH;
@@ -125,6 +126,7 @@
 		});
 	}
 
+	// Unique hash based on grid permutation
 	function getGridHash(grid) {
 		var hash = 0;
 		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
@@ -137,7 +139,8 @@
 		return hash;
 	}
 
-	function Block (inputGrid) {
+	// Represents 1 unique block
+	function Block(inputGrid) {
 		var length = 0;
 		var cells = [];
 		var grid = createBlankGrid();
