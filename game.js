@@ -1,181 +1,205 @@
-(function() {
+var game = {};
 
-	var MAX_BLOCK_LENGTH = 5;
+/**
+ * Gameplay logic
+ *
+ * Players are assigned a random id between 1 - 4, which determines order
+ * of turn and starting location on the board
+ */
+(function(game) {
+
+	var BOARD_LENGTH = 20;
+	var GRID_COLOR = 'black';
+	var PLAYER_COLORS = [
+		'#4285F4', // player 1
+		'#0F9D58', // player 2
+		'#F4B400', // player 3
+		'#DB4437'  // player 4
+	];
+
+	var START_CELLS = [
+		[0, 0],
+		[BOARD_LENGTH - 1, 0],
+		[BOARD_LENGTH - 1, BOARD_LENGTH - 1],
+		[0, BOARD_LENGTH - 1]
+	];
+
+	var players = {};
+	var board = [];
+	var winner;
+
+	// Drawing
 	var $board = $('#board');
+	var $message = $('#message');
+	var canvasContext;
+	var cellWidth;
+	var cellHeight;
+	var boardPadding;
 
-	function generateBlocks() {
-		var hashes = {};
-		var blocks = [];
-		var oneBlock = createBlankGrid();
-		oneBlock[1][1] = 1; // offset the 1 block because the cross does not touch the corner
-		var queue = [oneBlock];
-		while (grid = queue.shift()) {
-			if (hashes[getGridHash(grid)]) {
-				continue;
+	game.BOARD_LENGTH = BOARD_LENGTH;
+	game.addPlayer = function(name, turn) {
+		// Max players reached
+		if (_.keys(players).length >= 4) {
+			return null;
+		}
+		var id = _.keys(players).length + 1;
+		var startCell = START_CELLS[id - 1]; // Randomize order
+		var player = new Player(id, name, startCell, turn);
+		players[id] = player;
+		return player.id;
+	}
+
+	// returns true if game is over
+	function run() {
+		var numMoves = 0;
+		for (var playerId in players) {
+			var player = players[playerId];
+			var move = player.turn(board, playerId, players);
+			if (!move || !game.isValidMove(move, player)) {
+				continue; // treats as player passing
 			}
-			var block = new Block(grid);
-			blocks.push(block);
-			_.each(block.getPermutations(), function(grid, hash) {
-				hashes[hash] = true;
+			applyMove(move, player);
+			draw();
+			numMoves++;
+			if (_.isEmpty(player.getRemainingBlocks())) {
+				winner = player;
+				return true;
+			}
+		}
+		if (numMoves === 0) {
+			return true;
+		}
+	}
 
-				if (block.length >= MAX_BLOCK_LENGTH) {
-					return;
-				}
-				for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-					for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-						if (!grid[i][j]) {
-							continue;
-						}
-						_.each(getEdgeCells(i, j), function(c) {
-							if (!inBounds(c[0], c[1], MAX_BLOCK_LENGTH) || grid[c[0]][c[1]]) {
-								return;
-							}
-							var newGrid = _.cloneDeep(grid);
-							newGrid[c[0]][c[1]] = 1;
-							queue.push(newGrid);
-						});
-					}
+	function start() {
+		// TODO Check to see if enough players joined
+		init();
+		var gameOver = false;
+		while (!gameOver) {
+			gameOver = run();
+		}
+		if (!winner) {
+			// find winner
+			var lowestScore = Infinity;
+			_.each(players, function(player) {
+				// TODO handle ties
+				if (player.getScore() < lowestScore) {
+					lowestScore = player.getScore();
+					winner = player;
 				}
 			});
 		}
-		return blocks;
+		$message.html('Winner is: ' + winner.name + '!');
 	}
 
-	function inBounds(x, y, length) {
-		return x >= 0 && x < length && y >= 0 && y < length;
+	function init() {
+		canvasContext = $board[0].getContext('2d');
+		boardPadding = $board.width() / 40;
+		cellWidth = ($board.width() - boardPadding) / BOARD_LENGTH >> 0;
+		cellHeight = ($board.height() - boardPadding) / BOARD_LENGTH >> 0;
+		board = createBoard();
+		draw();
 	}
 
-	// Return coordinates touching the edges of this cell
-	function getEdgeCells(x, y) {
-		return [[x-1, y], [x+1, y], [x, y-1], [x, y+1]];
-	}
-
-	function getAllRotation(grid) {
-		var grids = {};
-		for (var i = 0; i < 4; i++) {
-			grid = rotateBlock(grid);
-			var hash = getGridHash(grid);
-			if (!grids[hash]) {
-				grids[hash] = grid;
-			}
-		}
-		grid = flipBlock(grid);
-		for (var i = 0; i < 4; i++) {
-			grid = rotateBlock(grid);
-			var hash = getGridHash(grid);
-			if (!grids[hash]) {
-				grids[hash] = grid;
-			}
-		}	
-		return grids;
-	}
-
-	// Rotates counter clockwise once
-	function rotateBlock(grid) {
-		var newGrid = createBlankGrid();
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (grid[i][j]) {
-					newGrid[MAX_BLOCK_LENGTH - j - 1][i] = 1;
-				}
-			}
-		}
-		return normalizeGrid(newGrid);
-	}
-
-	function flipBlock(grid) {
-		var newGrid = createBlankGrid();
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (grid[i][j]) {
-					newGrid[MAX_BLOCK_LENGTH - i - 1][j] = 1;
-				}
-			}
-		}
-		return normalizeGrid(newGrid);
-	}
-
-	// Pushes the grid to the corner so it can be compared with hash
-	function normalizeGrid(grid) {
-		var minX = MAX_BLOCK_LENGTH;
-		var minY = MAX_BLOCK_LENGTH;
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (grid[i][j]) {
-					minX = Math.min(i, minX);
-					minY = Math.min(j, minY);
-				}
-			}
-		}
-		var newGrid = createBlankGrid();
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (grid[i][j]) {
-					newGrid[i - minX][j - minY] = 1;
-				}
-			}
-		}
-		return newGrid;
-	}
-
-	function createBlankGrid() {
-		return  _.times(MAX_BLOCK_LENGTH, function () {
-			return _.times(MAX_BLOCK_LENGTH, function() {
+	function createBoard() {
+		return  _.times(BOARD_LENGTH, function () {
+			return _.times(BOARD_LENGTH, function() {
 				return 0;
 			})
 		});
 	}
 
-	// Unique hash based on grid permutation
-	function getGridHash(grid) {
-		var hash = 0;
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (grid[i][j]) {
-					hash |= 1 << i * MAX_BLOCK_LENGTH + j;
+	function draw() {
+		// Draw pieces
+		for (var x = 0; x < BOARD_LENGTH; x++) {
+			for (var y = 0; y < BOARD_LENGTH; y++) {
+				if (board[x][y] === 0) {
+					canvasContext.fillStyle = 'white';
+				} else {
+					canvasContext.fillStyle = PLAYER_COLORS[board[x][y] - 1];
+				}
+				canvasContext.fillRect(
+					boardPadding + x * cellWidth,
+					boardPadding + y * cellHeight,
+					cellWidth,
+					cellHeight
+				);
+			}
+		}
+
+		// Draw board
+		for (var x = 0; x <= BOARD_LENGTH; x++) {
+			canvasContext.moveTo(boardPadding + x * cellWidth, boardPadding);
+			canvasContext.lineTo(boardPadding + x * cellWidth, boardPadding + cellHeight * BOARD_LENGTH);
+		}
+		for (var y = 0; y <= BOARD_LENGTH; y++) {
+			canvasContext.moveTo(boardPadding, boardPadding + y * cellHeight);
+			canvasContext.lineTo(boardPadding + cellWidth * BOARD_LENGTH, boardPadding + y * cellHeight);
+		}
+		canvasContext.strokeStyle = '#4d4d4d';
+		canvasContext.stroke();
+	}
+
+	function applyMove(move, player) {
+		_.each(move, function(cell) {
+			board[cell[0]][cell[1]] = player.id;
+		});
+
+		var moveHash = getCellsHash(move);
+		var remainingBlocks = player.getRemainingBlocks();
+		for (var i = 0; i < remainingBlocks.length; i++) {
+			var block = remainingBlocks[i];
+			if (block.getPermutations()[moveHash]) {
+				player.useBlock(block);
+				return;
+			}
+		}
+	}
+
+	game.isValidMove = function(move, player) {
+		var isTouchingCorner = false;
+		// TODO check whether the player has this block
+		for (var i = 0; i < move.length; i++) {
+			var cell = move[i];
+			// Out of bounds
+			if (!inBounds(cell[0], cell[1], BOARD_LENGTH)) {
+				return false;
+			}
+			// Already occupied
+			if (board[cell[0]][cell[1]]) {
+				return false;
+			}
+			// Edges cannot touch
+			var edgeCells = getEdgeCells(cell[0], cell[1]);
+			for (var j = 0; j < edgeCells.length; j++) {
+				var edgeCell = edgeCells[j];
+				if (inBounds(edgeCell[0], edgeCell[1], BOARD_LENGTH) &&
+					board[edgeCell[0]][edgeCell[1]] === player.id) {
+					return false;
+				}
+			}
+			if (isTouchingCorner) {
+				continue;
+			}
+			// First move
+			if (player.startCell[0] === cell[0] && player.startCell[1] === cell[1]) {
+				isTouchingCorner = true;
+				continue;
+			}
+			var cornerCells = getCornerCells(cell[0], cell[1]);
+			for (var j = 0; j < cornerCells.length; j++) {
+				var cornerCell = cornerCells[j];
+				if (inBounds(cornerCell[0], cornerCell[1], BOARD_LENGTH) &&
+					board[cornerCell[0]][cornerCell[1]] === player.id) {
+					isTouchingCorner = true;
 				}
 			}
 		}
-		return hash;
+		return isTouchingCorner;
 	}
 
-	// Represents 1 unique block
-	function Block(inputGrid) {
-		var length = 0;
-		var cells = [];
-		var grid = createBlankGrid();
-
-		for (var i = 0; i < MAX_BLOCK_LENGTH; i++) {
-			inputGrid[i] = inputGrid[i] || [];
-			for (var j = 0; j < MAX_BLOCK_LENGTH; j++) {
-				if (inputGrid[i][j]) {
-					grid[i][j] = 1;
-					length ++;
-					cells.push([i, j]);
-				}
-			}
-		}
-		grid = normalizeGrid(grid);
-
-		var getPermutations = function() {
-			if (!this.permutations) {
-				this.permutations = getAllRotation(grid);
-			}
-			return this.permutations;
-		}
-
-		return {
-			length: length,
-			grid: grid,
-			cells: cells,
-			getPermutations: getPermutations
-		}
-	}
-
-	// var blocks = generateBlocks();
-	// _.each(blocks, function(block) {
-	// 	console.log(block.grid.join("\n"));
-	// 	console.log("permutations: ", _.keys(block.getPermutations()).length);
-	// });
-	// console.log(blocks.length);
-})();
+	// Should be triggered by a button
+	setTimeout(function() {
+		start();
+	}, 500);
+})(game);
