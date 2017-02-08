@@ -89,7 +89,7 @@ var game = {};
 				}
 			});
 		}
-		$message.html('Winner is: ' + winner.name + '!');
+		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>!');
 	}
 
 	function init() {
