@@ -13,28 +13,63 @@
 			return false;
 		}
 
-		var count = 0;
-		do {
-			var randomBlock = _.sample(me.getRemainingBlocks());
-			var randomPermutation = _.sample(randomBlock.getPermutations());
-
-			var randomMove = [];
-			var randomValidCell = _.sample(validCorners);
-			var offsetX = randomValidCell[0] - (Math.random() * 5 >> 0);
-			var offsetY = randomValidCell[1] - (Math.random() * 5 >> 0);
-			for (var x = 0; x < randomPermutation.length; x++) {
-				for (var y = 0; y < randomPermutation[x].length; y++) {
-					if (randomPermutation[x][y]) {
-						randomMove.push([x + offsetX >> 0, y + offsetY >> 0]);
+		validCorners = _.shuffle(validCorners);
+		var remainingBlocks = weightedShuffle(me.getRemainingBlocks());
+		// var remainingBlocks = _.shuffle(me.getRemainingBlocks());
+		for (var j = 0; j < remainingBlocks.length; j++) {
+			var permutations = _.shuffle(remainingBlocks[j].getPermutations());
+			for (var i = 0; i < validCorners.length; i++) {
+				for (var k in permutations) {
+					// Pick a cell to anchor on the valid corner
+					var cells = gridToCells(permutations[k]);
+					for (var l = 0; l < cells.length; l++) {
+						var offsetX = validCorners[i][0] - cells[l][0];
+						var offsetY = validCorners[i][1] - cells[l][1];
+						var move = offsetCells(cells, offsetX, offsetY);
+						if (game.isValidMove(move, me)) {
+							return move;
+						}
 					}
 				}
 			}
-			if (++count > 5000) {
-				return false;
-			}
-		} while (!game.isValidMove(randomMove, me));
+		}
+		return false;
+	}
 
-		return randomMove;
+	function gridToCells(grid) {
+		var cells = [];
+		for (var x = 0; x < grid.length; x++) {
+			for (var y = 0; y < grid[x].length; y++) {
+				if (grid[x][y]) {
+					cells.push([x, y]);
+				}
+			}
+		}
+		return cells;
+	}
+
+	function offsetCells(cells, offsetX, offsetY) {
+		var newCells = [];
+		for (var i = 0; i < cells.length; i++) {
+			newCells.push([cells[i][0] + offsetX, cells[i][1] + offsetY]);
+		}
+		return newCells;
+	}
+
+	function weightedShuffle(blocks) {
+		var weights = [];
+		_.each(blocks, function(block, k) {
+			for (var i = 0; i < block.size; i++) weights.push(k);
+		});
+		var weights = _.shuffle(weights);
+		var seen = {};
+		var randomBlocks = [];
+		_.each(weights, function(k) {
+			if (seen[k]) return;
+			seen[k] = true;
+			randomBlocks.push(blocks[k]);
+		});
+		return randomBlocks;
 	}
 
 	// Returns valid corners to place a move
@@ -62,7 +97,7 @@
 					var edgeCells = getEdgeCells(cell[0], cell[1]);
 					for (var j = 0; j < edgeCells.length; j++) {
 						var edgeCell = edgeCells[j];
-						if (inBounds(edgeCell[0], edgeCell[1], game.BOARD_LENGTH) && board[edgeCell[0]][edgeCell[1]]) {
+						if (inBounds(edgeCell[0], edgeCell[1], game.BOARD_LENGTH) && board[edgeCell[0]][edgeCell[1]] === player.id) {
 							continue cornerLoop;
 						}
 					}

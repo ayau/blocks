@@ -6,7 +6,7 @@ function Player(id, name, startCell, turn) {
 		for (var i = 0; i < blocks.length; i++) {
 			score += blocks[i].size;
 		}
-		return score;
+		return 89 - score;
 	}
 
 	var getRemainingBlocks = function() {

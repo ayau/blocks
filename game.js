@@ -56,6 +56,7 @@ var game = {};
 			var player = players[playerId];
 			var move = player.turn(board, playerId, players);
 			if (!move || !game.isValidMove(move, player)) {
+				console.log(player.name + ' passes');
 				continue; // treats as player passing
 			}
 			applyMove(move, player);
@@ -80,16 +81,16 @@ var game = {};
 		}
 		if (!winner) {
 			// find winner
-			var lowestScore = Infinity;
+			var maxScore = 0;
 			_.each(players, function(player) {
 				// TODO handle ties
-				if (player.getScore() < lowestScore) {
-					lowestScore = player.getScore();
+				if (player.getScore() > maxScore) {
+					maxScore = player.getScore();
 					winner = player;
 				}
 			});
 		}
-		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>!');
+		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>! (' + maxScore + ')');
 	}
 
 	function init() {
