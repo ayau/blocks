@@ -14,7 +14,7 @@
 		}
 
 		validCorners = _.shuffle(validCorners);
-		var remainingBlocks = _.shuffle(me.getRemainingBlocks());
+		var remainingBlocks = _.shuffle(me.blocks);
 		for (var i = 0; i < remainingBlocks.length; i++) {
 			var permutations = _.shuffle(getPermutations(remainingBlocks[i]));
 			for (var j = 0; j < validCorners.length; j++) {
@@ -25,7 +25,7 @@
 						var offsetX = validCorners[j][0] - cells[l][0];
 						var offsetY = validCorners[j][1] - cells[l][1];
 						var move = offsetCells(cells, offsetX, offsetY);
-						if (isValidMove(move, me)) {
+						if (isValidMove(move, myPlayerId)) {
 							return move;
 						}
 					}

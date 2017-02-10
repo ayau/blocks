@@ -9,7 +9,7 @@ function Player(id, name, startCell, turn) {
 		return 89 - score;
 	}
 
-	var getRemainingBlocks = function() {
+	var getBlocks = function() {
 		return blocks;
 	}
 
@@ -18,14 +18,25 @@ function Player(id, name, startCell, turn) {
 		delete blocks[blockId];
 	}
 
+	// Returns an immutable stub of a player
+	var getStub = function() {
+		return {
+			id: id,
+			name: name,
+			blocks: _.clone(getBlocks()),
+			startCell: startCell
+		}
+	}
+
 	return {
 		id: id,
 		name: name,
 		getScore: getScore,
-		getRemainingBlocks: getRemainingBlocks,
+		getBlocks: getBlocks,
 		startCell: startCell, 
 		turn: turn,
-		useBlock: useBlock
+		useBlock: useBlock,
+		getStub: getStub
 	}
 }
 

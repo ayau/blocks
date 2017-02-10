@@ -53,15 +53,16 @@ var game = {};
 		var numMoves = 0;
 		for (var playerId in players) {
 			var player = players[playerId];
-			var move = player.turn(board, playerId, players, isValidMove);
-			if (!move || !isValidMove(move, player)) {
+			var playerStubs = _.mapValues(players, function(p) { return p.getStub(); });
+			var move = player.turn(board, playerId, playerStubs, isValidMove);
+			if (!move || !isValidMove(move, playerId)) {
 				console.log(player.name + ' passes');
 				continue; // treats as player passing
 			}
 			applyMove(move, player);
 			draw();
 			numMoves++;
-			if (_.isEmpty(player.getRemainingBlocks())) {
+			if (_.isEmpty(player.getBlocks())) {
 				winner = player;
 				return true;
 			}
@@ -151,7 +152,8 @@ var game = {};
 		}
 	}
 
-	var isValidMove = function(move, player) {
+	var isValidMove = function(move, playerId) {
+		var player = players[playerId];
 		// TODO check whether the player has this block
 		for (var i = 0; i < move.length; i++) {
 			var cell = move[i];
