@@ -52,27 +52,21 @@
 
 	// Rotates counter clockwise once
 	function rotateBlock(cells) {
-		var newCells = [];
-		_.each(cells, function(cell) {
-			newCells.push([MAX_BLOCK_LENGTH - cell[1] - 1, cell[0]]);
+		return _.map(cells, function(cell) {
+			return [MAX_BLOCK_LENGTH - cell[1] - 1, cell[0]];
 		});
-		return newCells;
 	}
 
 	function flipBlock(cells) {
-		var newCells = [];
-		_.each(cells, function(cell) {
-			newCells.push([MAX_BLOCK_LENGTH - cell[0] - 1, cell[1]]);
+		return _.map(cells, function(cell) {
+			return [MAX_BLOCK_LENGTH - cell[0] - 1, cell[1]];
 		});
-		return newCells;
 	}
 
 	function offsetCells(cells, offsetX, offsetY) {
-		var newCells = [];
-		for (var i = 0; i < cells.length; i++) {
-			newCells.push([cells[i][0] + offsetX, cells[i][1] + offsetY]);
-		}
-		return newCells;
+		return _.map(cells, function(cell) {
+			return [cell[0] + offsetX, cell[1] + offsetY];
+		});
 	}
 
 	function inBounds(cell) {
@@ -89,7 +83,6 @@
 
 	// Returns valid corners to place a move
 	// One of the player's blocks must use one of these cells
-	// TODO instead of computing this everytime we should just store and check the diff after every move
 	function getValidCorners(board, player) {
 		// First move must be played at the start
 		if (!board[player.startCell[0]][player.startCell[1]]) {

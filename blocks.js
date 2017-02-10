@@ -58,19 +58,15 @@ var getBlock;
 
 	// Rotates counter clockwise once
 	function rotateBlock(cells) {
-		var newCells = [];
-		_.each(cells, function(cell) {
-			newCells.push([MAX_BLOCK_LENGTH - cell[1] - 1, cell[0]]);
+		return _.map(cells, function(cell) {
+			return [MAX_BLOCK_LENGTH - cell[1] - 1, cell[0]];
 		});
-		return newCells;
 	}
 
 	function flipBlock(cells) {
-		var newCells = [];
-		_.each(cells, function(cell) {
-			newCells.push([MAX_BLOCK_LENGTH - cell[0] - 1, cell[1]]);
+		return _.map(cells, function(cell) {
+			return [MAX_BLOCK_LENGTH - cell[0] - 1, cell[1]];
 		});
-		return newCells;
 	}
 
 	// Pushes the grid to the corner so it can be compared with hash
@@ -81,11 +77,9 @@ var getBlock;
 			minX = Math.min(cell[0], minX);
 			minY = Math.min(cell[1], minY);
 		});
-		var newCells = [];
-		_.each(cells, function(cell) {
-			newCells.push([cell[0] - minX, cell[1] - minY]);
+		return _.map(cells, function(cell) {
+			return [cell[0] - minX, cell[1] - minY];
 		});
-		return newCells;
 	}
 
 	// Unique hash based on grid permutation
