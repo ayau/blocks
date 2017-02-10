@@ -1,185 +1,100 @@
 // Global function
-var generateBlocks;
-var getCellsHash;
+var getAllBlocks;
+var getBlock;
 
 (function() {
 
+	// See http://www.gottfriedville.net/blokus/set.png
+	var BLOCKS = {
+		'i1': [[0,0]],
+		'i2': [[0,0],[0,1]],
+		'i3': [[0,0],[0,1],[0,2]],
+		'i4': [[0,0],[0,1],[0,2],[0,3]],
+		'i5': [[0,0],[0,1],[0,2],[0,3],[0,4]],
+		'v3': [[0,0],[0,1],[1,1]],
+		'v5': [[0,0],[0,1],[0,2],[1,2],[2,2]],
+		'o4': [[0,0],[0,1],[1,1],[1,0]],
+		't4': [[0,0],[1,0],[2,0],[1,1]],
+		't5': [[0,0],[1,0],[2,0],[1,1],[1,2]],
+		'l4': [[0,0],[1,0],[2,0],[2,1]],
+		'l5': [[0,0],[1,0],[2,0],[3,0],[3,1]],
+		'z4': [[0,0],[1,0],[1,1],[2,1]],
+		'z5': [[0,0],[1,0],[1,1],[1,2],[2,2]],
+		'y':  [[0,0],[1,0],[2,0],[3,0],[1,1]],
+		'n':  [[0,0],[1,0],[2,0],[2,1],[3,1]],
+		'u':  [[0,0],[1,0],[0,1],[0,2],[1,2]],
+		'x':  [[0,1],[1,0],[1,1],[2,1],[1,2]],
+		'w':  [[0,0],[0,1],[1,1],[1,2],[2,2]],
+		'p':  [[0,0],[0,1],[1,1],[1,0],[0,2]],
+		'f':  [[0,0],[1,0],[1,1],[1,2],[2,1]]
+	};
+	var NUM_CELLS = 89;
 	var MAX_BLOCK_LENGTH = 5;
+	var BLOCKS_HASH = getBlockHashes();
 
-	generateBlocks = function() {
+	getAllBlocks = function() {
+		return _.cloneDeep(BLOCKS);
+	}
+
+	getBlock = function(cells) {
+		return BLOCKS_HASH[getHash(cells)];
+	}
+
+	function getBlockHashes() {
 		var hashes = {};
-		var blocks = [];
-		var oneBlock = createBlankGrid();
-		oneBlock[1][1] = 1; // offset the 1 block because the cross does not touch the corner
-		var queue = [oneBlock];
-		while (grid = queue.shift()) {
-			if (hashes[getGridHash(grid)]) {
-				continue;
-			}
-			var block = new Block(grid);
-			blocks.push(block);
-			_.each(block.getPermutations(), function(grid, hash) {
-				hashes[hash] = true;
-
-				if (block.size >= MAX_BLOCK_LENGTH) {
-					return;
-				}
-				for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-					for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-						if (!grid[x][y]) {
-							continue;
-						}
-						_.each(getEdgeCells(x, y), function(c) {
-							if (!inBounds(c[0], c[1], MAX_BLOCK_LENGTH) || grid[c[0]][c[1]]) {
-								return;
-							}
-							var newGrid = _.cloneDeep(grid);
-							newGrid[c[0]][c[1]] = 1;
-							queue.push(newGrid);
-						});
-					}
+		for (var blockId in BLOCKS) {
+			var cells = BLOCKS[blockId];
+			// Flip twice
+			_.each([cells, flipBlock(cells)], function(c) {
+				// Rotate 4 times
+				for (var i = 0; i < 4; i++) {
+					c = rotateBlock(c);
+					hashes[getHash(c)] = blockId;
 				}
 			});
 		}
-		return blocks;
-	}
-
-	// Given an array of cells, return the hash of the block
-	getCellsHash = function(cells) {
-		var grid = createBlankGrid();
-		
-		var minX = Infinity;
-		var minY = Infinity;
-		for (var i = 0; i < cells.length; i++) {
-			minX = Math.min(minX, cells[i][0]);
-			minY = Math.min(minY, cells[i][1]);
-		}
-		for (var i = 0; i < cells.length; i++) {
-			grid[cells[i][0] - minX][cells[i][1] - minY] = 1;
-		}
-		return getGridHash(grid);
-	}
-
-	function getAllRotation(grid) {
-		var grids = {};
-		for (var i = 0; i < 4; i++) {
-			grid = rotateBlock(grid);
-			var hash = getGridHash(grid);
-			if (!grids[hash]) {
-				grids[hash] = grid;
-			}
-		}
-		grid = flipBlock(grid);
-		for (var i = 0; i < 4; i++) {
-			grid = rotateBlock(grid);
-			var hash = getGridHash(grid);
-			if (!grids[hash]) {
-				grids[hash] = grid;
-			}
-		}	
-		return grids;
+		return hashes;
 	}
 
 	// Rotates counter clockwise once
-	function rotateBlock(grid) {
-		var newGrid = createBlankGrid();
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (grid[x][y]) {
-					newGrid[MAX_BLOCK_LENGTH - y - 1][x] = 1;
-				}
-			}
-		}
-		return normalizeGrid(newGrid);
+	function rotateBlock(cells) {
+		var newCells = [];
+		_.each(cells, function(cell) {
+			newCells.push([MAX_BLOCK_LENGTH - cell[1] - 1, cell[0]]);
+		});
+		return newCells;
 	}
 
-	function flipBlock(grid) {
-		var newGrid = createBlankGrid();
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (grid[x][y]) {
-					newGrid[MAX_BLOCK_LENGTH - x - 1][y] = 1;
-				}
-			}
-		}
-		return normalizeGrid(newGrid);
+	function flipBlock(cells) {
+		var newCells = [];
+		_.each(cells, function(cell) {
+			newCells.push([MAX_BLOCK_LENGTH - cell[0] - 1, cell[1]]);
+		});
+		return newCells;
 	}
 
 	// Pushes the grid to the corner so it can be compared with hash
-	function normalizeGrid(grid) {
-		var minX = MAX_BLOCK_LENGTH;
-		var minY = MAX_BLOCK_LENGTH;
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (grid[x][y]) {
-					minX = Math.min(x, minX);
-					minY = Math.min(y, minY);
-				}
-			}
-		}
-		var newGrid = createBlankGrid();
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (grid[x][y]) {
-					newGrid[x - minX][y - minY] = 1;
-				}
-			}
-		}
-		return newGrid;
-	}
-
-	function createBlankGrid() {
-		return  _.times(MAX_BLOCK_LENGTH, function () {
-			return _.times(MAX_BLOCK_LENGTH, function() {
-				return 0;
-			})
+	function normalizeCells(cells) {
+		var minX = Infinity;
+		var minY = Infinity;
+		_.each(cells, function(cell) {
+			minX = Math.min(cell[0], minX);
+			minY = Math.min(cell[1], minY);
 		});
+		var newCells = [];
+		_.each(cells, function(cell) {
+			newCells.push([cell[0] - minX, cell[1] - minY]);
+		});
+		return newCells;
 	}
 
 	// Unique hash based on grid permutation
-	function getGridHash(grid) {
+	function getHash(cells) {
+		cells = normalizeCells(cells);
 		var hash = 0;
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (grid[x][y]) {
-					hash |= 1 << x * MAX_BLOCK_LENGTH + y;
-				}
-			}
-		}
+		_.each(cells, function(cell) {
+			hash |= 1 << cell[0] * MAX_BLOCK_LENGTH + cell[1];
+		});
 		return hash;
-	}
-
-	// Represents 1 unique block
-	function Block(inputGrid) {
-		var size = 0;
-		var cells = [];
-		var grid = createBlankGrid();
-
-		for (var x = 0; x < MAX_BLOCK_LENGTH; x++) {
-			inputGrid[x] = inputGrid[x] || [];
-			for (var y = 0; y < MAX_BLOCK_LENGTH; y++) {
-				if (inputGrid[x][y]) {
-					grid[x][y] = 1;
-					size ++;
-					cells.push([x, y]);
-				}
-			}
-		}
-		grid = normalizeGrid(grid);
-
-		var getPermutations = function() {
-			if (!this._permutations) {
-				this._permutations = getAllRotation(grid);
-			}
-			return this._permutations;
-		}
-
-		return {
-			id: getGridHash(grid),
-			size: size,
-			grid: grid,
-			cells: cells,
-			getPermutations: getPermutations
-		}
 	}
 })();

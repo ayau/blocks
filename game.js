@@ -36,7 +36,6 @@ var game = {};
 	var cellHeight;
 	var boardPadding;
 
-	game.BOARD_LENGTH = BOARD_LENGTH;
 	game.addPlayer = function(name, turn) {
 		// Max players reached
 		if (_.keys(players).length >= 4) {
@@ -54,8 +53,8 @@ var game = {};
 		var numMoves = 0;
 		for (var playerId in players) {
 			var player = players[playerId];
-			var move = player.turn(board, playerId, players);
-			if (!move || !game.isValidMove(move, player)) {
+			var move = player.turn(board, playerId, players, isValidMove);
+			if (!move || !isValidMove(move, player)) {
 				console.log(player.name + ' passes');
 				continue; // treats as player passing
 			}
@@ -90,7 +89,7 @@ var game = {};
 				}
 			});
 		}
-		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>! (' + maxScore + ')');
+		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>! (' + winner.getScore() + ')');
 	}
 
 	function init() {
@@ -146,24 +145,18 @@ var game = {};
 			board[cell[0]][cell[1]] = player.id;
 		});
 
-		var moveHash = getCellsHash(move);
-		var remainingBlocks = player.getRemainingBlocks();
-		for (var i = 0; i < remainingBlocks.length; i++) {
-			var block = remainingBlocks[i];
-			if (block.getPermutations()[moveHash]) {
-				player.useBlock(block);
-				return;
-			}
+		var blockId = getBlock(move);
+		if (blockId) { // TODO check if player has the block
+			player.useBlock(blockId);
 		}
 	}
 
-	game.isValidMove = function(move, player) {
-		var isTouchingCorner = false;
+	var isValidMove = function(move, player) {
 		// TODO check whether the player has this block
 		for (var i = 0; i < move.length; i++) {
 			var cell = move[i];
 			// Out of bounds
-			if (!inBounds(cell[0], cell[1], BOARD_LENGTH)) {
+			if (!inBounds(cell)) {
 				return false;
 			}
 			// Already occupied
@@ -171,32 +164,43 @@ var game = {};
 				return false;
 			}
 			// Edges cannot touch
-			var edgeCells = getEdgeCells(cell[0], cell[1]);
+			var edgeCells = getEdgeCells(cell);
 			for (var j = 0; j < edgeCells.length; j++) {
 				var edgeCell = edgeCells[j];
-				if (inBounds(edgeCell[0], edgeCell[1], BOARD_LENGTH) &&
-					board[edgeCell[0]][edgeCell[1]] === player.id) {
+				if (board[edgeCell[0]][edgeCell[1]] === player.id) {
 					return false;
 				}
 			}
-			if (isTouchingCorner) {
-				continue;
-			}
+		}
+
+		// Needs to touch one of your corners
+		for (var i = 0; i < move.length; i++) {
+			var cell = move[i];
 			// First move
 			if (player.startCell[0] === cell[0] && player.startCell[1] === cell[1]) {
-				isTouchingCorner = true;
-				continue;
+				return true;
 			}
-			var cornerCells = getCornerCells(cell[0], cell[1]);
+			var cornerCells = getCornerCells(cell);
 			for (var j = 0; j < cornerCells.length; j++) {
 				var cornerCell = cornerCells[j];
-				if (inBounds(cornerCell[0], cornerCell[1], BOARD_LENGTH) &&
-					board[cornerCell[0]][cornerCell[1]] === player.id) {
-					isTouchingCorner = true;
+				if (board[cornerCell[0]][cornerCell[1]] === player.id) {
+					return true;
 				}
 			}
 		}
-		return isTouchingCorner;
+		return false;
+	}
+
+	function inBounds(cell) {
+		return cell[0] >= 0 && cell[0] < BOARD_LENGTH && cell[1] >= 0 && cell[1] < BOARD_LENGTH;
+	}
+
+	function getEdgeCells(cell) {
+		return _.filter([[cell[0]-1, cell[1]], [cell[0]+1, cell[1]], [cell[0], cell[1]-1], [cell[0], cell[1]+1]], inBounds);
+	}
+
+	function getCornerCells(cell) {
+		return _.filter([[cell[0]-1, cell[1]-1], [cell[0]+1, cell[1]+1], [cell[0]-1, cell[1]+1], [cell[0]+1, cell[1]-1]], inBounds);
 	}
 
 	// Should be triggered by a button

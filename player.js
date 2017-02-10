@@ -1,11 +1,11 @@
 function Player(id, name, startCell, turn) {
-	var blocks = generateBlocks();
+	var blocks = getAllBlocks();
 
 	var getScore = function() {
 		var score = 0;
-		for (var i = 0; i < blocks.length; i++) {
-			score += blocks[i].size;
-		}
+		_.each(blocks, function(block) {
+			score += block.length;
+		});
 		return 89 - score;
 	}
 
@@ -14,13 +14,8 @@ function Player(id, name, startCell, turn) {
 	}
 
 	// Remove a block from remainingBlocks
-	var useBlock = function(block) {
-		for (var i = 0; i < blocks.length; i++) {
-			if (block.id === blocks[i].id) {
-				blocks.splice(i, 1);
-				return;
-			}
-		}
+	var useBlock = function(blockId) {
+		delete blocks[blockId];
 	}
 
 	return {
