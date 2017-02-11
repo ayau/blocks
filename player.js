@@ -9,10 +9,6 @@ function Player(id, name, startCell, turn) {
 		return 89 - score;
 	}
 
-	var getBlocks = function() {
-		return blocks;
-	}
-
 	// Remove a block from remainingBlocks
 	var useBlock = function(blockId) {
 		delete blocks[blockId];
@@ -23,7 +19,7 @@ function Player(id, name, startCell, turn) {
 		return {
 			id: id,
 			name: name,
-			blocks: _.clone(getBlocks()),
+			blocks: _.clone(blocks),
 			startCell: startCell
 		}
 	}
@@ -32,7 +28,7 @@ function Player(id, name, startCell, turn) {
 		id: id,
 		name: name,
 		getScore: getScore,
-		getBlocks: getBlocks,
+		blocks: blocks,
 		startCell: startCell, 
 		turn: turn,
 		useBlock: useBlock,

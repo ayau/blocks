@@ -73,7 +73,7 @@ var game = {};
 			applyMove(move, player);
 			draw();
 			numMoves++;
-			if (_.isEmpty(player.getBlocks())) {
+			if (_.isEmpty(player.blocks)) {
 				winner = player;
 				return true;
 			}
@@ -165,7 +165,10 @@ var game = {};
 
 	var isValidMove = function(move, playerId) {
 		var player = players[playerId];
-		// TODO check whether the player has this block
+		// Check to see if player has the block
+		if (!player.blocks[getBlock(move)]) {
+			return false;
+		}
 		for (var i = 0; i < move.length; i++) {
 			var cell = move[i];
 			// Out of bounds
