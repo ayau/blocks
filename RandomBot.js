@@ -1,9 +1,6 @@
 (function(game) {
 
-	game.addPlayer('bot1', turn);
-	game.addPlayer('bot2', turn);
-	game.addPlayer('bot3', turn);
-	game.addPlayer('bot4', turn);
+	game.registerBot('RandomBot', turn);
 
 	function turn(board, myPlayerId, players, isValidMove) {
 		var me = players[myPlayerId];

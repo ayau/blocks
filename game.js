@@ -24,7 +24,9 @@ var game = {};
 		[0, BOARD_LENGTH - 1]
 	];
 
+	var reigsteredBots = {};
 	var players = {};
+	var botsInPlay = {}; // to make bot names unique (bot1, bot2..)
 	var board = [];
 	var winner;
 
@@ -36,14 +38,23 @@ var game = {};
 	var cellHeight;
 	var boardPadding;
 
-	game.addPlayer = function(name, turn) {
-		// Max players reached
-		if (_.keys(players).length >= 4) {
+	game.registerBot = function(name, turn) {
+		if (!reigsteredBots[name]) {
+			reigsteredBots[name] = turn;
+		}
+	}
+
+	function addPlayerToGame(name) {
+		var turn = reigsteredBots[name];
+		if (!turn || _.keys(players).length >= 4) {
 			return null;
 		}
-		var id = _.keys(players).length + 1;
-		var startCell = START_CELLS[id - 1]; // Randomize order
-		var player = new Player(id, name, startCell, turn);
+		var id;
+		while (players[id = _.random(1, 4)]);
+		var startCell = START_CELLS[id - 1];
+		var playerName = name + (botsInPlay[name] || '');
+		botsInPlay[name] = (botsInPlay[name] || 0) + 1;
+		var player = new Player(id, playerName, startCell, turn);
 		players[id] = player;
 		return player.id;
 	}
@@ -207,6 +218,10 @@ var game = {};
 
 	// Should be triggered by a button
 	setTimeout(function() {
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
 		start();
-	}, 500);
+	}, 250);
 })(game);
