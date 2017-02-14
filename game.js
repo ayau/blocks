@@ -221,7 +221,7 @@ var game = {};
 
 	// Should be triggered by a button
 	setTimeout(function() {
-		addPlayerToGame('RandomBot');
+		addPlayerToGame('InterestingBot');
 		addPlayerToGame('RandomBot');
 		addPlayerToGame('RandomBot');
 		addPlayerToGame('RandomBot');
