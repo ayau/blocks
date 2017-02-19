@@ -8,8 +8,9 @@ var game = {};
  */
 (function(game) {
 
+	var NUM_PLAYERS = 4;
+	var NUM_CELLS_PER_PLAYER = 89;
 	var BOARD_LENGTH = 20;
-	var GRID_COLOR = 'black';
 	var PLAYER_COLORS = [
 		'#4285F4', // player 1
 		'#0F9D58', // player 2
@@ -24,28 +25,35 @@ var game = {};
 		[0, BOARD_LENGTH - 1]
 	];
 
-	var reigsteredBots = {};
+	var registeredBots = {};
 	var players = {};
+	var playerScores = {};
 	var botsInPlay = {}; // to make bot names unique (bot1, bot2..)
 	var board = [];
+	var consecutivePasses = 0;
+	var currentPlayerId = 1;
 	var winner;
+	var turnDelayMs = 0;
+	var nextTimeout;
+	var gamesRemaining = 0;
 
 	// Drawing
 	var $board = $('#board');
 	var $message = $('#message');
+	var $scoreTable = $('#score-table');
 	var canvasContext;
 	var cellWidth;
 	var cellHeight;
 	var boardPadding;
 
 	game.registerBot = function(name, turn) {
-		if (!reigsteredBots[name]) {
-			reigsteredBots[name] = turn;
+		if (!registeredBots[name]) {
+			registeredBots[name] = turn;
 		}
 	}
 
 	function addPlayerToGame(name) {
-		var turn = reigsteredBots[name];
+		var turn = registeredBots[name];
 		if (!turn || _.keys(players).length >= 4) {
 			return null;
 		}
@@ -56,40 +64,72 @@ var game = {};
 		botsInPlay[name] = (botsInPlay[name] || 0) + 1;
 		var player = new Player(id, playerName, startCell, turn);
 		players[id] = player;
+		printPlayers();
 		return player.id;
+	}
+
+	function printPlayers() {
+		var html = '';
+		for (var playerId in players) {
+			var player = players[playerId];
+			html += '<p><span style="color:' + PLAYER_COLORS[player.id - 1] + '">Player ' + player.id + ': ' + player.name + '</span></p>';
+		}
+		$('.player-list').html(html);
+	}
+
+	function runGames(n) {
+		turnDelayMs = $('#turn-delay').val();
+		gamesRemaining = n;
+		start();
 	}
 
 	// returns true if game is over
 	function run() {
-		var numMoves = 0;
-		for (var playerId in players) {
-			var player = players[playerId];
-			var playerStubs = _.mapValues(players, function(p) { return p.getStub(); });
-			var move = player.turn(board, playerId, playerStubs, isValidMove);
-			if (!move || !isValidMove(move, playerId)) {
-				console.log(player.name + ' passes');
-				continue; // treats as player passing
-			}
-			applyMove(move, player);
-			draw();
-			numMoves++;
-			if (_.isEmpty(player.blocks)) {
-				winner = player;
-				return true;
-			}
+		var playerId = currentPlayerId;
+		currentPlayerId = currentPlayerId === NUM_PLAYERS ? 1 : (currentPlayerId + 1);
+		var player = players[playerId];
+		var playerStubs = _.mapValues(players, function(p) { return p.getStub(); });
+		var t = +new Date;
+		var move = player.turn(board, playerId, playerStubs, isValidMove);
+		player.executionTime += +new Date - t;
+		if (!move || !isValidMove(move, playerId)) {
+			consecutivePasses++;
+			return consecutivePasses >= 4; // game over if all 4 players passed
 		}
-		if (numMoves === 0) {
+		consecutivePasses = 0;
+		applyMove(move, player);
+		if (turnDelayMs > 0) {
+			draw();
+		}
+		if (_.isEmpty(player.blocks)) {
+			winner = player;
 			return true;
 		}
 	}
 
 	function start() {
+		if (nextTimeout !== undefined) {
+			clearTimeout(nextTimeout);
+		}
+
 		// TODO Check to see if enough players joined
 		init();
+
+		// View Mode: pause in between each turn so moves can be visualized
+		if (turnDelayMs > 0) {
+			next();
+			return;
+		}
+
+		// Fast Mode: execute all turns in loop
 		var gameOver = false;
 		while (!gameOver) {
 			gameOver = run();
 		}
+		finish();
+	}
+
+	function finish() {
 		if (!winner) {
 			// find winner
 			var maxScore = 0;
@@ -101,10 +141,74 @@ var game = {};
 				}
 			});
 		}
+		for (var playerId in players) {
+			var player = players[playerId];
+			playerScores[player.name] = playerScores[player.name] || {
+				name: player.name,
+				gamesPlayed: 0,
+				scoreSum: 0,
+				executionTimeSum: 0,
+			};
+			playerScores[player.name].gamesPlayed++;
+			playerScores[player.name].latestScore = NUM_CELLS_PER_PLAYER - player.getScore();
+			playerScores[player.name].latestExecutionTime = player.executionTime;
+			playerScores[player.name].scoreSum += playerScores[player.name].latestScore;
+			playerScores[player.name].executionTimeSum += player.executionTime;
+		}
 		$message.html('Winner is: <span style="color:' + PLAYER_COLORS[winner.id - 1] + '">' + winner.name + '</span>! (' + winner.getScore() + ')');
+		printScores();
+		draw();
+		gamesRemaining--;
+		if (gamesRemaining > 0) {
+			setTimeout(start, turnDelayMs);
+		}
+	}
+
+	function printScores() {
+		var html = '';
+		html += '<thead><tr>';
+		html += '<th>Player</th><th>Games Played</th><th>Avg Score</th><th>Latest Score</th><th>Avg Time</th><th>Latest Time</th>';
+		html += '</tr></thead>';
+		html += '<tbody>';
+		for (var name in playerScores) {
+			var player = playerScores[name];
+			if (player.gamesPlayed > 0) {
+				html += '<tr>';
+				html += '<td>' + player.name + '</td>';
+				html += '<td>' + player.gamesPlayed + '</td>';
+				html += '<td>' + Math.round(player.scoreSum / player.gamesPlayed * 10) / 10 + '</td>';
+				html += '<td>' + (player.latestScore) + '</td>';
+				html += '<td>' + Math.round(player.executionTimeSum / player.gamesPlayed) + 'ms</td>';
+				html += '<td>' + (player.latestExecutionTime) + 'ms</td>';
+				html += '</tr>';
+			}
+		}
+		html += '</tbody>';
+		$scoreTable.html(html);
+	}
+
+	function next() {
+		var gameOver = run();
+		if (gameOver) {
+			finish();
+		} else {
+			nextTimeout = setTimeout(next, turnDelayMs);
+		}
 	}
 
 	function init() {
+		// Reset game state
+		players = {};
+		botsInPlay = {};
+		currentPlayerId = 1;
+		winner = undefined;
+		consecutivePasses = 0;
+
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
+		addPlayerToGame('RandomBot');
+
 		canvasContext = $board[0].getContext('2d');
 		boardPadding = $board.width() / 40;
 		cellWidth = ($board.width() - boardPadding) / BOARD_LENGTH >> 0;
@@ -221,10 +325,15 @@ var game = {};
 
 	// Should be triggered by a button
 	setTimeout(function() {
-		addPlayerToGame('RandomBot');
-		addPlayerToGame('RandomBot');
-		addPlayerToGame('RandomBot');
-		addPlayerToGame('RandomBot');
-		start();
+		init();
 	}, 250);
+
+	$(document).on('click', '.run-once', function() {
+		runGames(1);
+	});
+
+	$(document).on('click', '.run-multiple', function() {
+		runGames(Math.max(1, $('#num-games').val()));
+	});
+
 })(game);
