@@ -32,7 +32,8 @@ function Player(id, name, startCell, turn) {
 		startCell: startCell, 
 		turn: turn,
 		useBlock: useBlock,
-		getStub: getStub
+		getStub: getStub,
+		executionTime: 0
 	}
 }
 
